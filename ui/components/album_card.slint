@@ -1,0 +1,18 @@
+export component AlbumCard inherits Rectangle {
+    in property <image> artwork;
+    in property <string> title;
+    in property <string> artist;
+    in property <string> subtitle;
+    callback clicked();
+    height: self.width + 83px;
+    border-radius: 16px; background: touch.has-hover ? #2B382F : #191F1B;
+    animate background { duration: 150ms; }
+    Image { x: 10px; y: 10px; width: parent.width - 20px; height: self.width; source: root.artwork; image-fit: cover; }
+    Text { x: 12px; y: root.width + 1px; width: root.width - 24px; text: root.title; color: #F1F5F2; font-size: 14px; font-weight: 600; overflow: elide; }
+    Text { x: 12px; y: root.width + 25px; width: root.width - 24px; text: root.artist; color: #A4B0A8; font-size: 12px; overflow: elide; }
+    Text { x: 12px; y: root.width + 48px; width: root.width - 24px; text: root.subtitle; color: #7BCE9A; font-size: 10px; overflow: elide; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    if touch.has-hover : Rectangle { x: parent.width - 51px; y: parent.width - 51px; width: 34px; height: 34px; border-radius: 17px; background: #7BCE9A;
+        Text { text: "\u{e768}"; font-family: "Segoe MDL2 Assets"; font-size: 15px; color: #101512; horizontal-alignment: center; vertical-alignment: center; }
+    }
+}

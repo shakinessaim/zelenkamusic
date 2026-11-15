@@ -1,0 +1,21 @@
+ZelenkaMusic for Android 0.1.2
+
+Requires Android 8.0 or newer. The APK supports phones and tablets on all
+Android CPU architectures; it does not bundle any music.
+
+1. Copy ZelenkaMusic-Android-0.1.2.apk to your phone and open it.
+2. When Android asks, allow this file manager/browser to install apps,
+   then return to the APK and tap Install.
+3. Open ZelenkaMusic. The interface is in Russian, like the desktop app.
+4. Copy your MP3/FLAC albums into a folder on your phone or SD card.
+5. Tap "Vybrat papku s muzykoy" (Choose music folder) on the home page,
+   choose that folder in Android's picker, and allow access.
+6. Open the library or tap the green play button.
+
+Music keeps playing with the screen off. Use the notification, lock screen,
+or headphone buttons for playback controls. Playlists and settings are local.
+You can delete a playlist without deleting its music files.
+
+The default build is signed with a persistent local development key. Keep
+the same key for updates; an APK signed with a different key cannot update
+an existing installation. This installer is intended for direct installation.

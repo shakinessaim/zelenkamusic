@@ -1,0 +1,38 @@
+[package]
+name = "zelenka-music"
+version = "0.1.2"
+edition = "2021"
+rust-version = "1.89"
+description = "A green, local-first Windows music player"
+build = "build.rs"
+
+[dependencies]
+slint = { version = "=1.9.2", default-features = false, features = ["std", "backend-winit", "renderer-software", "compat-1-2"] }
+symphonia = { version = "0.5.4", default-features = false, features = ["mp3", "flac"] }
+cpal = "0.15.3"
+lofty = "0.22"
+rusqlite = { version = "0.32", features = ["bundled"] }
+rtrb = "0.3"
+rand = "0.8"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+
+[build-dependencies]
+slint-build = "=1.9.2"
+winresource = "0.1"
+
+[dev-dependencies]
+i-slint-backend-winit = { version = "=1.9.2", default-features = false, features = ["renderer-software", "internal-testing"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# Restore the entire Win32 client surface even when Slint's retained image is unchanged.
+[patch.crates-io]
+i-slint-backend-winit = { path = "vendor/i-slint-backend-winit" }
+

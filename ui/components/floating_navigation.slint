@@ -1,0 +1,20 @@
+export component FloatingNavigation inherits Rectangle {
+    in property <int> selected;
+    callback navigate(int);
+    width: 440px; height: 56px;
+    border-radius: 28px; background: #222B25;
+    border-width: 1px; border-color: #354439;
+    drop-shadow-color: #00000055; drop-shadow-blur: 16px; drop-shadow-offset-y: 5px;
+    HorizontalLayout {
+        padding: 6px; spacing: 4px;
+        for item[index] in [{label: "Главная", glyph: "\u{e80f}"}, {label: "Медиатека", glyph: "\u{e8f1}"}, {label: "Настройки", glyph: "\u{e713}"}] : Rectangle {
+            border-radius: 23px; background: root.selected == index ? #7BCE9A : touch.has-hover ? #303F34 : transparent;
+            animate background { duration: 180ms; }
+            HorizontalLayout { alignment: center; spacing: 8px;
+                Text { text: item.glyph; font-family: "Segoe MDL2 Assets"; font-size: 16px; color: root.selected == index ? #101512 : #A4B0A8; vertical-alignment: center; }
+                Text { text: item.label; font-size: 13px; font-weight: root.selected == index ? 600 : 400; color: root.selected == index ? #101512 : #A4B0A8; vertical-alignment: center; }
+            }
+            touch := TouchArea { mouse-cursor: pointer; clicked => { root.navigate(index); } }
+        }
+    }
+}

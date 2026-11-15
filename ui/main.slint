@@ -1,0 +1,102 @@
+import { ScrollView, Palette } from "std-widgets.slint";
+import { CardData, TrackData, ChoiceData } from "models.slint";
+export { CardData, TrackData, ChoiceData }
+import { IconButton, ActionButton, NameField } from "components/controls.slint";
+import { PlayerBar } from "components/player_bar.slint";
+import { FloatingNavigation } from "components/floating_navigation.slint";
+import { Snowfall } from "components/snowfall.slint";
+import { HomePage } from "pages/home.slint";
+import { LibraryPage } from "pages/library.slint";
+import { SettingsPage } from "pages/settings.slint";
+
+export component AppWindow inherits Window {
+    title: "ZelenkaMusic"; icon: @image-url("../assets/images/logo.jpg");
+    preferred-width: 1120px; preferred-height: 820px; min-width: 940px; min-height: 760px;
+    background: #101512; default-font-family: "Segoe UI"; default-font-size: 13px;
+    init => { Palette.color-scheme = ColorScheme.dark; }
+    in-out property <int> page: 0;
+    in-out property <int> library-tab: 0;
+    in property <image> artwork: @image-url("../assets/images/logo.jpg");
+    in property <string> track-title: "Ничего не играет";
+    in property <string> track-artist: "";
+    in property <bool> has-track;
+    in property <bool> has-library;
+    in property <bool> playing;
+    in property <bool> shuffle: true;
+    in property <int> repeat-mode: 1;
+    in property <float> volume: 0.75;
+    in property <float> progress;
+    in property <string> elapsed: "0:00";
+    in property <string> duration: "0:00";
+    in property <string> library-summary: "Поиск музыки…";
+    in property <string> songs-path;
+    in property <bool> scanning: true;
+    in property <[CardData]> albums;
+    in property <[CardData]> playlists;
+    in property <[TrackData]> tracks;
+    in property <bool> detail;
+    in property <bool> is-playlist;
+    in property <string> detail-title;
+    in property <string> detail-artist;
+    in property <string> detail-summary;
+    in property <image> detail-artwork;
+    in property <bool> snow;
+    in property <float> snow-phase;
+    in property <string> notice;
+    in property <int> modal: 0; // 1 create, 2 rename, 3 delete, 4 choose playlist
+    in-out property <string> modal-name;
+    in property <string> modal-title;
+    in property <string> modal-description;
+    in property <string> modal-error;
+    in property <[ChoiceData]> choices;
+    callback navigate(int); callback home-play(); callback toggle(); callback previous(); callback next(); callback seek(float); callback volume-change(float); callback shuffle-change(); callback repeat-change();
+    callback album-open(int); callback playlist-open(int); callback detail-back(); callback collection-play(bool); callback track-play(int); callback track-add(int); callback track-remove(int);
+    callback playlist-create(); callback playlist-rename(); callback playlist-delete(); callback modal-submit(string); callback modal-close(); callback choice-select(int); callback snow-change(bool); callback rescan();
+    Rectangle { x: 30px; y: 22px; width: 38px; height: 38px; border-radius: 11px; clip: true;
+        Image { width: parent.width; height: parent.height; source: @image-url("../assets/images/logo.jpg"); }
+    }
+    Text { x: 81px; y: 28px; text: "ZelenkaMusic"; font-size: 21px; font-weight: 600; color: #F1F5F2; }
+    if root.scanning : Rectangle { x: parent.width - 187px; y: 28px; width: 156px; height: 27px; border-radius: 14px; background: #191F1B;
+        Text { text: "Поиск музыки…"; color: #7BCE9A; font-size: 11px; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    content := Rectangle { x: 30px; y: 88px; width: root.width - 60px; height: root.height - 288px;
+        HomePage { visible: root.page == 0; opacity: root.page == 0 ? 1 : 0; animate opacity { duration: 180ms; } artwork: root.artwork; title: root.track-title; artist: root.track-artist; library-summary: root.library-summary; playing: root.playing; has-track: root.has-track; has-library: root.has-library; progress: root.progress; elapsed: root.elapsed; duration: root.duration;
+            play => { root.home-play(); } previous => { root.previous(); } next => { root.next(); } seek(value) => { root.seek(value); } browse => { root.navigate(1); }
+        }
+        LibraryPage { visible: root.page == 1; opacity: root.page == 1 ? 1 : 0; animate opacity { duration: 180ms; } albums: root.albums; playlists: root.playlists; tracks: root.tracks; tab <=> root.library-tab; detail: root.detail; is-playlist: root.is-playlist; scanning: root.scanning; detail-title: root.detail-title; detail-artist: root.detail-artist; detail-summary: root.detail-summary; detail-artwork: root.detail-artwork; songs-path: root.songs-path;
+            album-open(index) => { root.album-open(index); } playlist-open(index) => { root.playlist-open(index); } back => { root.detail-back(); } create => { root.playlist-create(); } rename => { root.playlist-rename(); } delete => { root.playlist-delete(); } play(shuffle) => { root.collection-play(shuffle); } track-play(index) => { root.track-play(index); } track-add(index) => { root.track-add(index); } track-remove(index) => { root.track-remove(index); } rescan => { root.rescan(); }
+        }
+        SettingsPage { visible: root.page == 2; opacity: root.page == 2 ? 1 : 0; animate opacity { duration: 180ms; } snow: root.snow; snow-change(value) => { root.snow-change(value); } }
+    }
+    PlayerBar { x: 30px; y: root.height - 181px; width: root.width - 60px; artwork: root.artwork; title: root.track-title; artist: root.track-artist; elapsed: root.elapsed; duration: root.duration; progress: root.progress; volume: root.volume; playing: root.playing; shuffle: root.shuffle; repeat-mode: root.repeat-mode; has-track: root.has-track;
+        toggle => { root.toggle(); } previous => { root.previous(); } next => { root.next(); } seek(value) => { root.seek(value); } volume-change(value) => { root.volume-change(value); } shuffle-change => { root.shuffle-change(); } repeat-change => { root.repeat-change(); }
+    }
+    FloatingNavigation { x: (root.width - self.width) / 2; y: root.height - 69px; selected: root.page; navigate(index) => { root.navigate(index); } }
+    Snowfall { x: content.x + 26px; y: content.y + 26px; width: content.width - 52px; height: content.height - 52px; enabled: root.snow; phase: root.snow-phase; visible: root.modal == 0; }
+    if root.notice != "" : Rectangle { x: 36px; y: root.height - 229px; width: root.width - 72px; height: 35px; border-radius: 11px; background: #285C42;
+        Text { x: 14px; width: parent.width - 28px; text: root.notice; color: #F1F5F2; font-size: 11px; overflow: elide; vertical-alignment: center; }
+    }
+    if root.modal > 0 : Rectangle { background: #080D0ACC;
+        TouchArea { clicked => { root.modal-close(); } }
+        Rectangle { x: (root.width - self.width) / 2; y: (root.height - self.height) / 2; width: 480px; height: root.modal == 4 ? 424px : 280px; border-radius: 24px; background: #222B25; border-width: 1px; border-color: #3B483E;
+            TouchArea { } // Absorb clicks inside the dialog.
+            Text { x: 25px; y: 26px; width: parent.width - 92px; text: root.modal-title; font-size: 22px; font-weight: 600; color: #F1F5F2; overflow: elide; }
+            IconButton { x: parent.width - 53px; y: 18px; glyph: "\u{e711}"; clicked => { root.modal-close(); } }
+            Text { x: 25px; y: 68px; width: parent.width - 50px; height: 44px; text: root.modal-description; color: #A4B0A8; font-size: 12px; wrap: word-wrap; }
+            if root.modal == 1 || root.modal == 2 : NameField { x: 25px; y: 118px; width: parent.width - 50px; height: 41px; text <=> root.modal-name; accepted => { root.modal-submit(root.modal-name); } }
+            if root.modal-error != "" : Text { x: 25px; y: 171px; width: parent.width - 50px; height: 31px; text: root.modal-error; color: #F0B4AE; font-size: 11px; wrap: word-wrap; }
+            if root.modal != 4 : HorizontalLayout { x: parent.width - 327px; y: 214px; width: 302px; height: 42px; spacing: 12px;
+                ActionButton { label: "Отмена"; clicked => { root.modal-close(); } }
+                ActionButton { label: root.modal == 3 ? "Удалить" : "Сохранить"; primary: true; clicked => { root.modal-submit(root.modal-name); } }
+            }
+            if root.modal == 4 : ScrollView { x: 21px; y: 115px; width: parent.width - 42px; height: 234px; viewport-width: self.width; viewport-height: max(self.height, root.choices.length * 54px);
+                for choice[index] in root.choices : Rectangle { y: index * 54px; height: 50px; width: parent.width - 12px; border-radius: 12px; background: touch.has-hover ? #344139 : #191F1B;
+                    Text { x: 15px; y: 8px; width: parent.width - 30px; text: choice.name; color: #F1F5F2; font-size: 13px; overflow: elide; }
+                    Text { x: 15px; y: 29px; text: choice.subtitle; color: #7BCE9A; font-size: 10px; }
+                    touch := TouchArea { mouse-cursor: pointer; clicked => { root.choice-select(index); } }
+                }
+            }
+            if root.modal == 4 : ActionButton { x: 25px; y: 363px; width: parent.width - 50px; label: "Создать плейлист"; glyph: "\u{e710}"; primary: true; clicked => { root.playlist-create(); } }
+        }
+    }
+}

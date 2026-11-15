@@ -1,0 +1,43 @@
+import { IconButton, Scrubber } from "controls.slint";
+
+export component PlayerBar inherits Rectangle {
+    in property <image> artwork;
+    in property <string> title;
+    in property <string> artist;
+    in property <string> elapsed;
+    in property <string> duration;
+    in property <float> progress;
+    in property <float> volume;
+    in property <bool> playing;
+    in property <bool> shuffle;
+    in property <bool> has-track;
+    in property <int> repeat-mode;
+    callback toggle(); callback previous(); callback next(); callback seek(float); callback volume-change(float); callback shuffle-change(); callback repeat-change();
+    height: 98px; border-radius: 22px; background: #222B25;
+    border-width: 1px; border-color: #354439;
+    drop-shadow-color: #00000055; drop-shadow-blur: 18px; drop-shadow-offset-y: 6px;
+    Image { x: 18px; y: 19px; width: 60px; height: 60px; source: root.artwork; image-fit: cover; }
+    VerticalLayout { x: 92px; y: 25px; width: root.width * 0.24 - 50px; height: 49px; spacing: 5px;
+        Text { text: root.title; color: #F1F5F2; font-size: 14px; font-weight: 600; overflow: elide; }
+        Text { text: root.artist; color: #A4B0A8; font-size: 12px; overflow: elide; }
+    }
+    HorizontalLayout { x: root.width * 0.33; y: 9px; width: root.width * 0.34; height: 43px; alignment: center; spacing: 12px;
+        IconButton { glyph: "\u{e8b1}"; active: root.shuffle; clicked => { root.shuffle-change(); } }
+        IconButton { glyph: "\u{e892}"; enabled: root.has-track; clicked => { root.previous(); } }
+        IconButton { glyph: root.playing ? "\u{e769}" : "\u{e768}"; prominent: true; width: 43px; height: 43px; clicked => { root.toggle(); } }
+        IconButton { glyph: "\u{e893}"; enabled: root.has-track; clicked => { root.next(); } }
+        Rectangle { width: 38px;
+            IconButton { glyph: "\u{e8ee}"; active: root.repeat-mode > 0; clicked => { root.repeat-change(); } }
+            if root.repeat-mode == 2 : Text { x: 25px; y: 2px; text: "1"; color: #7BCE9A; font-size: 10px; }
+        }
+    }
+    HorizontalLayout { x: root.width * 0.29; y: 61px; width: root.width * 0.43; height: 20px; spacing: 10px;
+        Text { text: root.elapsed; font-size: 10px; color: #A4B0A8; width: 31px; vertical-alignment: center; }
+        Scrubber { value: root.progress; enabled: root.has-track; changed(value) => { root.seek(value); } }
+        Text { text: root.duration; font-size: 10px; color: #A4B0A8; width: 35px; vertical-alignment: center; }
+    }
+    HorizontalLayout { x: root.width - 171px; y: 38px; width: 145px; height: 23px; spacing: 11px;
+        Text { text: root.volume == 0 ? "\u{e74f}" : "\u{e767}"; font-family: "Segoe MDL2 Assets"; color: #A4B0A8; font-size: 17px; width: 20px; vertical-alignment: center; }
+        Scrubber { value: root.volume; live: true; changed(value) => { root.volume-change(value); } }
+    }
+}

@@ -1,0 +1,83 @@
+import { ScrollView } from "std-widgets.slint";
+import { ActionButton, IconButton } from "../components/controls.slint";
+import { AlbumCard } from "../components/album_card.slint";
+import { CardData, TrackData } from "../models.slint";
+
+export component LibraryPage inherits Rectangle {
+    in property <[CardData]> albums;
+    in property <[CardData]> playlists;
+    in property <[TrackData]> tracks;
+    in-out property <int> tab: 0;
+    in property <bool> detail;
+    in property <bool> is-playlist;
+    in property <bool> scanning;
+    in property <string> detail-title;
+    in property <string> detail-artist;
+    in property <string> detail-summary;
+    in property <image> detail-artwork;
+    in property <string> songs-path;
+    callback album-open(int); callback playlist-open(int); callback back(); callback create(); callback rename(); callback delete(); callback play(bool); callback track-play(int); callback track-add(int); callback track-remove(int); callback rescan();
+    if !detail : Rectangle {
+        Text { x: 8px; y: 8px; text: "Медиатека"; color: #F1F5F2; font-size: 27px; font-weight: 600; }
+        ActionButton { x: parent.width - 162px; y: 4px; width: 154px; label: root.scanning ? "Поиск…" : "Обновить"; glyph: "\u{e72c}"; enabled: !root.scanning; clicked => { root.rescan(); } }
+        HorizontalLayout { x: 8px; y: 57px; width: 248px; height: 36px; spacing: 8px;
+            for label[index] in ["Альбомы", "Плейлисты"] : Rectangle { border-radius: 18px; background: root.tab == index ? #285C42 : tab-touch.has-hover ? #222B25 : transparent;
+                Text { text: label; font-size: 13px; font-weight: 600; color: root.tab == index ? #7BCE9A : #A4B0A8; horizontal-alignment: center; vertical-alignment: center; }
+                tab-touch := TouchArea { mouse-cursor: pointer; clicked => { root.tab = index; } }
+            }
+        }
+        if root.tab == 1 : ActionButton { x: parent.width - 178px; y: 55px; width: 170px; label: "Новый плейлист"; glyph: "\u{e710}"; primary: true; clicked => { root.create(); } }
+        grid := ScrollView { x: 0px; y: 111px; width: parent.width; height: parent.height - 111px;
+            private property <int> columns: max(3, floor(self.width / 186px));
+            private property <[CardData]> cards: root.tab == 0 ? root.albums : root.playlists;
+            private property <length> cell-width: (self.width - 12px) / self.columns;
+            viewport-width: self.width;
+            viewport-height: max(self.height, ceil(self.cards.length / self.columns) * (self.cell-width + 92px));
+            for card[index] in grid.cards : AlbumCard {
+                x: mod(index, grid.columns) * grid.cell-width; y: floor(index / grid.columns) * (grid.cell-width + 92px);
+                width: grid.cell-width - 14px;
+                artwork: card.artwork; title: card.title; artist: card.artist; subtitle: card.subtitle;
+                clicked => { if root.tab == 0 { root.album-open(index); } else { root.playlist-open(index); } }
+            }
+            if grid.cards.length == 0 : Rectangle { height: grid.height; width: grid.width;
+                Text { y: 55px; text: root.scanning ? "Поиск музыки…" : root.tab == 0 ? "Альбомов пока нет" : "Плейлистов пока нет"; color: #F1F5F2; font-size: 22px; horizontal-alignment: center; }
+                Text { x: 50px; y: 101px; width: parent.width - 100px; text: root.tab == 0 ? "Поместите MP3 и FLAC в папки альбомов по адресу:\n" + root.songs-path : "Создайте плейлист и добавьте композиции кнопкой +."; wrap: word-wrap; color: #A4B0A8; font-size: 13px; horizontal-alignment: center; }
+                if root.tab == 1 : ActionButton { x: (parent.width - self.width) / 2; y: 165px; width: 180px; label: "Создать плейлист"; glyph: "\u{e710}"; primary: true; clicked => { root.create(); } }
+            }
+        }
+    }
+    if detail : Rectangle {
+        IconButton { x: 0px; y: 0px; glyph: "\u{e72b}"; clicked => { root.back(); } }
+        Text { x: 49px; y: 11px; text: root.is-playlist ? "Плейлист" : "Альбом"; color: #7BCE9A; font-size: 12px; }
+        Image { x: 8px; y: 52px; width: 142px; height: 142px; source: root.detail-artwork; image-fit: cover; }
+        Text { x: 174px; y: 59px; width: parent.width - 182px; text: root.detail-title; color: #F1F5F2; font-size: 29px; font-weight: 700; overflow: elide; }
+        Text { x: 175px; y: 103px; width: parent.width - 183px; text: root.detail-artist + "  ·  " + root.detail-summary; color: #A4B0A8; font-size: 12px; overflow: elide; }
+        HorizontalLayout { x: 172px; y: 149px; width: root.is-playlist ? 456px : 346px; height: 42px; spacing: 12px;
+            ActionButton { label: "Слушать"; glyph: "\u{e768}"; primary: true; enabled: root.tracks.length > 0; clicked => { root.play(false); } }
+            ActionButton { label: "Перемешать"; glyph: "\u{e8b1}"; width: 176px; enabled: root.tracks.length > 0; clicked => { root.play(true); } }
+            if root.is-playlist : IconButton { glyph: "\u{e70f}"; clicked => { root.rename(); } }
+            if root.is-playlist : IconButton { glyph: "\u{e74d}"; clicked => { root.delete(); } }
+        }
+        Rectangle { x: 6px; y: 218px; height: 25px; width: parent.width - 12px;
+            Text { x: 14px; text: "#"; color: #708077; font-size: 11px; }
+            Text { x: 91px; text: "Название · Исполнитель"; color: #708077; font-size: 11px; }
+            Text { x: parent.width - 128px; text: "Время"; color: #708077; font-size: 11px; }
+        }
+        ScrollView { x: 0px; y: 249px; width: parent.width; height: parent.height - 249px;
+            viewport-width: self.width; viewport-height: max(self.height, root.tracks.length * 62px);
+            for track[index] in root.tracks : Rectangle {
+                y: index * 62px; height: 58px; width: parent.width - 12px; border-radius: 12px;
+                background: track.current ? #285C4255 : row-touch.has-hover ? #222B25 : transparent;
+                row-touch := TouchArea { mouse-cursor: pointer; clicked => { root.track-play(index); } }
+                Text { x: 15px; width: 30px; height: parent.height; text: track.current ? "\u{e8d6}" : track.number; font-family: track.current ? "Segoe MDL2 Assets" : "Segoe UI"; color: track.current ? #7BCE9A : #708077; font-size: 12px; vertical-alignment: center; }
+                Image { x: 45px; y: 9px; width: 40px; height: 40px; source: track.artwork; image-fit: cover; }
+                Text { x: 99px; y: 9px; width: parent.width - 263px; text: track.title; color: track.current ? #7BCE9A : #F1F5F2; font-size: 13px; font-weight: 600; overflow: elide; }
+                Text { x: 99px; y: 32px; width: parent.width - 263px; text: track.artist; color: #A4B0A8; font-size: 11px; overflow: elide; }
+                Text { x: parent.width - 129px; y: 20px; text: track.duration; color: #A4B0A8; font-size: 11px; }
+                IconButton { x: parent.width - (root.is-playlist ? 86px : 47px); y: 10px; glyph: "\u{e710}"; clicked => { root.track-add(index); } }
+                if root.is-playlist : IconButton { x: parent.width - 45px; y: 10px; glyph: "\u{e74d}"; clicked => { root.track-remove(index); } }
+            }
+            if root.tracks.length == 0 : Text { y: 25px; text: "Откройте альбом и добавьте композиции кнопкой +."; color: #A4B0A8; font-size: 13px; horizontal-alignment: center; }
+        }
+    }
+}

@@ -1,0 +1,17 @@
+export component Snowfall inherits Rectangle {
+    in property <bool> enabled;
+    in property <float> phase;
+    // Keep all particles within this inset area. There is no full-window clipping layer.
+    // Image textures avoid the translucent rounded-rectangle path in the software renderer.
+    if enabled : Rectangle {
+        for index in 96 : Image {
+            private property <float> travel: max(1, (root.height - 32px) / 1px);
+            private property <float> position: mod(root.phase * (14 + mod(index * 23, 29)) + index * 79, self.travel) / self.travel;
+            width: (4 + mod(index * 7, 9)) * 1px; height: self.width;
+            x: max(12px, min(root.width - self.width - 12px, 16px + (root.width - 40px) * mod(index * 137, 991) / 991 + sin((root.phase * 12 + index * 31) * 1deg) * 7px));
+            y: 16px + self.position * (root.height - 32px);
+            source: mod(index, 3) == 0 ? @image-url("../../assets/icons/snow-soft.svg") : @image-url("../../assets/icons/snowflake.svg");
+            opacity: min(1, min(self.position / 0.06, (1 - self.position) / 0.06)) * (0.18 + mod(index * 5, 7) * 0.035);
+        }
+    }
+}

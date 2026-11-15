@@ -1,0 +1,33 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.zelenka.music'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.zelenka.music'
+        minSdk 26
+        targetSdk 35
+        versionCode 102
+        versionName '0.1.2'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    sourceSets {
+        main.res.srcDirs += '../build/generated/res'
+    }
+}
+
+// Reuse the desktop logo in both Android Studio and the standalone APK build.
+tasks.register('prepareLogo', Copy) {
+    from '../../assets/images/logo.jpg'
+    into '../build/generated/res/drawable-nodpi'
+    rename { 'logo.jpg' }
+}
+tasks.named('preBuild').configure { dependsOn 'prepareLogo' }

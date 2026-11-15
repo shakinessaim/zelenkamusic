@@ -1,0 +1,15 @@
+export component SettingsPage inherits Rectangle {
+    in property <bool> snow;
+    callback snow-change(bool);
+    Text { x: 8px; y: 8px; text: "Настройки"; color: #F1F5F2; font-size: 27px; font-weight: 600; }
+    Rectangle { x: 8px; y: 76px; width: parent.width - 16px; height: 98px; border-radius: 18px; background: #191F1B;
+        Image { x: 24px; y: 29px; width: 40px; height: 40px; source: @image-url("../../assets/icons/snow.svg"); }
+        Text { x: 86px; y: 24px; text: "Снегопад"; color: #F1F5F2; font-size: 17px; font-weight: 600; }
+        Text { x: 86px; y: 54px; text: "Визуальный эффект"; color: #A4B0A8; font-size: 12px; }
+        Rectangle { x: parent.width - 84px; y: 34px; width: 52px; height: 30px; border-radius: 15px; background: root.snow ? #7BCE9A : #3B483E;
+            animate background { duration: 180ms; }
+            Rectangle { x: root.snow ? 25px : 3px; y: 3px; width: 24px; height: 24px; border-radius: 12px; background: root.snow ? #101512 : #D4DDD7; animate x { duration: 180ms; } }
+            TouchArea { mouse-cursor: pointer; clicked => { root.snow-change(!root.snow); } }
+        }
+    }
+}

@@ -1,0 +1,76 @@
+export component IconButton inherits Rectangle {
+    in property <string> glyph;
+    in property <bool> active: false;
+    in property <bool> enabled: true;
+    in property <bool> prominent: false;
+    in property <length> icon-size: root.prominent ? 24px : 17px;
+    callback clicked();
+    width: 38px; height: 38px;
+    border-radius: self.height / 2;
+    background: prominent ? (touch.has-hover ? #9CE3B5 : #7BCE9A) : !enabled ? transparent : touch.has-hover ? #303F34 : active ? #285C42 : transparent;
+    opacity: enabled ? 1 : 0.45;
+    animate background { duration: 130ms; }
+    Text { text: root.glyph; font-family: "Segoe MDL2 Assets"; font-size: root.icon-size; color: !root.enabled ? #526057 : root.prominent ? #101512 : root.active ? #7BCE9A : #F1F5F2; horizontal-alignment: center; vertical-alignment: center; }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export component ActionButton inherits Rectangle {
+    in property <string> label;
+    in property <string> glyph: "";
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    callback clicked();
+    width: 146px; height: 42px; border-radius: 21px;
+    background: primary ? (touch.has-hover ? #9CE3B5 : #7BCE9A) : (touch.has-hover ? #344139 : #222B25);
+    opacity: enabled ? 1 : 0.4;
+    animate background { duration: 130ms; }
+    HorizontalLayout {
+        padding-left: 18px; padding-right: 18px; spacing: 9px;
+        if root.glyph != "" : Text { text: root.glyph; font-family: "Segoe MDL2 Assets"; font-size: 16px; color: root.primary ? #101512 : #7BCE9A; vertical-alignment: center; }
+        Text { text: root.label; font-size: 13px; font-weight: 600; color: root.primary ? #101512 : #F1F5F2; horizontal-alignment: center; vertical-alignment: center; }
+    }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export component Scrubber inherits Rectangle {
+    in property <float> value: 0;
+    in property <bool> enabled: true;
+    in property <bool> live: false;
+    private property <bool> dragging: false;
+    private property <float> preview: 0;
+    private property <float> displayed: dragging ? preview : min(1, max(0, value));
+    callback changed(float);
+    horizontal-stretch: 1;
+    height: 20px;
+    Rectangle { x: 0px; width: root.width; y: (parent.height - 4px) / 2; height: 4px; border-radius: 2px; background: #3B483E;
+        Rectangle { x: 0px; y: 0px; height: parent.height; width: parent.width * root.displayed; border-radius: 2px; background: #7BCE9A; }
+    }
+    Rectangle { x: max(0px, min(root.width - 12px, root.width * root.displayed - 6px)); y: (parent.height - 12px) / 2; width: 12px; height: 12px; border-radius: 6px; background: #A7EDBF; opacity: root.dragging || touch.has-hover ? 1 : 0.75; }
+    touch := TouchArea {
+        width: root.width; y: -6px; height: root.height + 12px;
+        enabled: root.enabled; mouse-cursor: pointer;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.cancel { root.dragging = false; }
+            else if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.dragging = true;
+                root.preview = min(1, max(0, self.mouse-x / max(1px, self.width)));
+                if root.live { root.changed(root.preview); }
+            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up && root.dragging {
+                root.preview = min(1, max(0, self.mouse-x / max(1px, self.width)));
+                root.dragging = false;
+                root.changed(root.preview);
+            }
+        }
+        moved => { if root.dragging { root.preview = min(1, max(0, self.mouse-x / max(1px, self.width))); if root.live { root.changed(root.preview); } } }
+    }
+}
+
+export component NameField inherits Rectangle {
+    in-out property <string> text;
+    callback accepted();
+    forward-focus: input;
+    height: 41px; border-radius: 10px; background: #191F1B;
+    border-width: 1px; border-color: input.has-focus ? #7BCE9A : #3B483E;
+    Text { x: 13px; width: parent.width - 26px; height: parent.height; text: "Название плейлиста"; color: #708077; vertical-alignment: center; visible: root.text == "" && !input.has-focus; }
+    input := TextInput { x: 13px; y: 10px; width: parent.width - 26px; height: parent.height - 20px; text <=> root.text; single-line: true; font-size: 14px; color: #F1F5F2; selection-background-color: #285C42; selection-foreground-color: #F1F5F2; accepted => { root.accepted(); } }
+}

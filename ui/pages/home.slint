@@ -1,0 +1,34 @@
+import { IconButton, Scrubber, ActionButton } from "../components/controls.slint";
+
+export component HomePage inherits Rectangle {
+    in property <image> artwork;
+    in property <string> title;
+    in property <string> artist;
+    in property <string> library-summary;
+    in property <bool> playing;
+    in property <bool> has-track;
+    in property <bool> has-library;
+    in property <float> progress;
+    in property <string> elapsed;
+    in property <string> duration;
+    callback play(); callback previous(); callback next(); callback seek(float); callback browse();
+    background: #191F1B; border-radius: 24px;
+    Rectangle { x: 32px; y: 32px; width: min(root.width * 0.42, root.height - 64px); height: self.width; border-radius: 18px; clip: true;
+        Image { width: parent.width; height: parent.height; source: root.artwork; image-fit: cover; }
+    }
+    Text { x: root.width * 0.51; y: 33px; text: "В случайном порядке"; color: #7BCE9A; font-size: 13px; }
+    Text { x: root.width * 0.51; y: root.height * 0.23; width: root.width * 0.45; text: root.has-track ? root.title : "Ничего не играет"; color: #F1F5F2; font-size: 27px; font-weight: 600; overflow: elide; }
+    Text { x: root.width * 0.51; y: root.height * 0.23 + 44px; width: root.width * 0.45; text: root.has-track ? root.artist : "Добавьте музыку в папку songs"; color: #A4B0A8; font-size: 14px; overflow: elide; }
+    Rectangle { x: root.width * 0.51; y: root.height * 0.46; width: 248px; height: 96px;
+        IconButton { x: 0px; y: 20px; height: 56px; width: 56px; glyph: "\u{e892}"; enabled: root.has-track; clicked => { root.previous(); } }
+        IconButton { x: 76px; height: 96px; width: 96px; icon-size: 36px; glyph: root.playing ? "\u{e769}" : "\u{e768}"; prominent: true; enabled: root.has-library; clicked => { root.play(); } }
+        IconButton { x: 192px; y: 20px; height: 56px; width: 56px; glyph: "\u{e893}"; enabled: root.has-track; clicked => { root.next(); } }
+    }
+    Text { x: root.width * 0.51; y: root.height - 150px; width: root.width * 0.45; text: root.library-summary; color: #708077; font-size: 12px; overflow: elide; }
+    ActionButton { x: root.width * 0.51; y: root.height - 116px; width: 160px; label: "Медиатека"; glyph: "\u{e8f1}"; clicked => { root.browse(); } }
+    HorizontalLayout { x: root.width * 0.51; y: root.height - 48px; width: root.width * 0.45; height: 20px; spacing: 9px;
+        Text { text: root.elapsed; color: #A4B0A8; font-size: 10px; width: 34px; vertical-alignment: center; }
+        Scrubber { value: root.progress; enabled: root.has-track; changed(value) => { root.seek(value); } }
+        Text { text: root.duration; color: #A4B0A8; font-size: 10px; width: 38px; vertical-alignment: center; }
+    }
+}
