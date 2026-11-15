@@ -1,5 +1,10 @@
 # ZelenkaMusic
 
+##Актуальные файлы установки находятся в релизах
+[![ТУТ](https://img.shields.io/github/v/release/shakinessaim/zelenkamusic)](https://github.com/shakinessaim/zelenkamusic/releases/latest)
+
+##ВНИЗУ КАК СОБРАТЬ И ГАЙДЫ И Т Д И ТП
+
 Музыкальный проигрыватель для **Windows 10 и Windows 11** на Rust и Slint. Локальное воспроизведение MP3 и FLAC, альбомы, пользовательские плейлисты и необязательный снегопад. Основной цвет — **#7BCE9A**. Интерфейс и установщик на русском языке.
 
 Дополнительная версия для **Android 8.0 и новее** находится в [`android`](android/README.md). Сборка APK: `powershell -ExecutionPolicy Bypass -File .\scripts\Build-Android.ps1`. Установщик создаётся в `dist\ZelenkaMusic-Android-0.1.3.apk`. Android-версия использует музыку из выбранной папки телефона, поддерживает альбомы, плейлисты, тексты песен и воспроизведение с выключенным экраном.
