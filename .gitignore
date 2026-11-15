@@ -4,8 +4,6 @@
 /.tools/
 /.cargo-home/
 /.rustup-home/
-/songs/**
-!/songs/.gitkeep
 *.db
 *.db-shm
 *.db-wal

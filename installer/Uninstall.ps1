@@ -10,7 +10,7 @@ try {
         if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
     }
     $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'ZelenkaMusic'
-    foreach ($name in @('ZelenkaMusic.lnk','Папка музыки.lnk','Music folder.lnk')) {
+    foreach ($name in @('ZelenkaMusic.lnk','Папка музыки.lnk','Music folder.lnk','Тексты песен.lnk')) {
         $shortcut = Join-Path $menu $name
         if (Test-Path -LiteralPath $shortcut) { Remove-Item -LiteralPath $shortcut -Force }
     }

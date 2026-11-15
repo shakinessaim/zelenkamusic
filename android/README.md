@@ -2,9 +2,29 @@
 
 Additional native Android edition of the Windows player, for Android 8.0 (API 26) and newer. It keeps the green theme, logo, Russian interface, albums, editable playlists, optional snowfall, and local MP3/FLAC playback. The APK supports all Android CPU architectures because the app uses Android's media APIs and has no native libraries or external runtime dependencies.
 
-Music is selected with Android's folder picker (Storage Access Framework). Access is retained across restarts; no broad storage permission or internet permission is requested. Music files are never copied, uploaded, modified, or included in the APK. Metadata and playlists stay in app-private storage. Removing the app clears those settings, while music in the selected folder remains.
+Music and lyrics are selected with Android's folder picker (Storage Access Framework), with persistent access and no broad storage permission. Internet permission is used only for the optional GitHub download in Settings. The app writes missing downloaded files to the selected folders and preserves existing files. Nothing is uploaded or bundled in the APK. Metadata and playlists stay in app-private storage. Removing the app clears those settings, while music and lyrics in the selected folders remain.
 
 Playback uses a foreground media service, a media session, wake locks while playing, notification and lock-screen controls, audio focus, and pause on headphone disconnection. Home playback shuffles without repeating a song within a cycle. Albums and playlists support sequential playback, shuffle, and repeat off/all/one. A saved song and position restore on pause after a process restart. Desktop and Android libraries/settings are separate; copy music to the phone yourself.
+
+## Lyrics and GitHub downloads
+
+In **Settings**, choose separate folders for music and `lyrics`. To download the public
+`shakinessaim/zelenkamusic` repository's `songs` and `lyrics` folders, allow read/write access
+to both folders and tap **Download music and lyrics**. The data-sync foreground service
+shows progress and a cancel action, and continues while the activity is closed or rotated.
+Existing files are skipped; retrying adds missing files. Partial downloads are removed.
+Public Git LFS files are supported and their SHA-256 checksums are verified. Only the two
+content folders are downloaded, from one pinned commit on the repository's default branch.
+The library refreshes when the app is open after completion or cancellation.
+
+Add UTF-8 `.txt` or timed `.lrc` files manually, using the audio filename with its extension
+replaced, for example `songs/Album/01 - Song.flac` and `lyrics/Album/01 - Song.txt`.
+Matching subfolders take precedence over flat files; `.lrc` takes precedence over `.txt`
+within a location. UTF-16 with a BOM is also supported. Open the **Lyrics** tab and tap
+**Refresh lyrics** after editing. LRC supports multiple timestamps, metadata and millisecond
+offsets (positive values display lines earlier). Each file is limited to 1 MiB. Playback,
+lyrics display and seeking work offline. Rescan an older library once to enable matching
+album subfolders for tracks cached by version 0.1.2.
 
 ## Build the APK on Windows
 
@@ -28,8 +48,8 @@ For a custom installation path:
 
 The script tests playback ordering, compiles resources and Java, generates DEX bytecode, aligns and signs the APK, and verifies the signature and alignment. Results:
 
-- `dist/ZelenkaMusic-Android-0.1.2.apk` — signed installer.
-- `dist/ZelenkaMusic-Android-0.1.2.apk.sha256` — checksum.
+- `dist/ZelenkaMusic-Android-0.1.3.apk` — signed installer.
+- `dist/ZelenkaMusic-Android-0.1.3.apk.sha256` — checksum.
 - `dist/ZelenkaMusic-Android-INSTALL.txt` — phone installation instructions.
 
 Build and install on an attached phone with USB debugging enabled or a running emulator:

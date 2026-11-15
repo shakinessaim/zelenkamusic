@@ -13,11 +13,14 @@ if (-not $SkipTests) {
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
     & cargo check --all-targets
     if ($LASTEXITCODE -ne 0) { throw 'Compilation checks failed.' }
+    & "$PSScriptRoot\Test-RepositoryContent.ps1"
 }
 & cargo build --release --bin zelenka-music
 if ($LASTEXITCODE -ne 0) { throw 'Release build failed. Install Visual Studio Build Tools with Desktop development with C++ and the Windows SDK.' }
 $portable = Join-Path $projectRoot 'dist\ZelenkaMusic'
 New-Item -ItemType Directory -Path (Join-Path $portable 'songs') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $portable 'lyrics') -Force | Out-Null
+Copy-Item -LiteralPath 'lyrics\README.md' -Destination (Join-Path $portable 'lyrics\LYRICS-HELP.md') -Force
 Copy-Item -LiteralPath 'target\release\zelenka-music.exe' -Destination (Join-Path $portable 'ZelenkaMusic.exe')
 Copy-Item -LiteralPath 'target\release\zelenka-music.exe' -Destination (Join-Path $projectRoot 'ZelenkaMusic.exe')
 Copy-Item -LiteralPath 'README.md' -Destination $portable
@@ -27,6 +30,7 @@ Compress-Archive -Path $portable -DestinationPath (Join-Path $projectRoot 'dist\
 Write-Output "Portable app: $portable\ZelenkaMusic.exe"
 Write-Output "Run with the existing library: $projectRoot\ZelenkaMusic.exe"
 if ($Installer) {
+    & "$PSScriptRoot\Build-ContentDownloader.ps1"
     $compiler = Get-Command ISCC.exe -ErrorAction SilentlyContinue
     $innoCompiler = if ($compiler) { $compiler.Source } else { Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe' }
     if (Test-Path -LiteralPath $innoCompiler) {

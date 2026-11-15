@@ -88,7 +88,7 @@ $unsigned = Join-Path $build 'unsigned.apk'
 Invoke-ZelenkaAndroidTool -Tool (Join-Path $buildTools 'aapt2.exe') -Arguments @(
     'link', '-o', $unsigned, '-I', $platform, '--manifest', $manifestPath,
     '--java', $generated, '--min-sdk-version', '26', '--target-sdk-version', '35',
-    '--version-code', '102', '--version-name', '0.1.2', $compiledResources
+    '--version-code', '103', '--version-name', '0.1.3', $compiledResources
 )
 $javaSources = @(
     Get-ChildItem -LiteralPath (Join-Path $projectRoot 'android\app\src\main\java') -Filter '*.java' -Recurse
@@ -137,7 +137,7 @@ if ($customKey) {
 }
 $dist = Join-Path $projectRoot 'dist'
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
-$apk = Join-Path $dist 'ZelenkaMusic-Android-0.1.2.apk'
+$apk = Join-Path $dist 'ZelenkaMusic-Android-0.1.3.apk'
 Invoke-ZelenkaAndroidTool -Tool (Join-Path $javaRoot 'bin\java.exe') -Arguments (@(
     '-jar', (Join-Path $buildTools 'lib\apksigner.jar'), 'sign', '--ks', $KeystorePath,
     '--ks-key-alias', $KeyAlias, '--out', $apk
@@ -147,7 +147,7 @@ Invoke-ZelenkaAndroidTool -Tool (Join-Path $javaRoot 'bin\java.exe') -Arguments 
 )
 Invoke-ZelenkaAndroidTool -Tool (Join-Path $buildTools 'zipalign.exe') -Arguments @('-c', '4', $apk)
 $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash
-[System.IO.File]::WriteAllText("$apk.sha256", "$hash  ZelenkaMusic-Android-0.1.2.apk`n")
+[System.IO.File]::WriteAllText("$apk.sha256", "$hash  ZelenkaMusic-Android-0.1.3.apk`n")
 Copy-Item -LiteralPath (Join-Path $projectRoot 'android\INSTALL.txt') -Destination (Join-Path $dist 'ZelenkaMusic-Android-INSTALL.txt') -Force
 Write-Output "APK installer: $apk"
 Write-Output "SHA-256: $hash"

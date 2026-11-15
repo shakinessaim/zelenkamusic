@@ -2,5 +2,6 @@
 pub mod audio;
 pub mod database;
 pub mod library;
+pub mod lyrics;
 pub mod playlists;
 pub mod settings;

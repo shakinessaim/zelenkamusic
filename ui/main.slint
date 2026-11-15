@@ -8,6 +8,7 @@ import { Snowfall } from "components/snowfall.slint";
 import { HomePage } from "pages/home.slint";
 import { LibraryPage } from "pages/library.slint";
 import { SettingsPage } from "pages/settings.slint";
+import { LyricsPage } from "pages/lyrics.slint";
 
 export component AppWindow inherits Window {
     title: "ZelenkaMusic"; icon: @image-url("../assets/images/logo.jpg");
@@ -30,6 +31,12 @@ export component AppWindow inherits Window {
     in property <string> duration: "0:00";
     in property <string> library-summary: "Поиск музыки…";
     in property <string> songs-path;
+    in property <string> lyrics-text;
+    in property <string> lyrics-current-line;
+    in property <string> lyrics-status;
+    in property <string> lyrics-source;
+    in property <bool> lyrics-synchronized;
+    callback lyrics-refresh();
     in property <bool> scanning: true;
     in property <[CardData]> albums;
     in property <[CardData]> playlists;
@@ -67,6 +74,7 @@ export component AppWindow inherits Window {
             album-open(index) => { root.album-open(index); } playlist-open(index) => { root.playlist-open(index); } back => { root.detail-back(); } create => { root.playlist-create(); } rename => { root.playlist-rename(); } delete => { root.playlist-delete(); } play(shuffle) => { root.collection-play(shuffle); } track-play(index) => { root.track-play(index); } track-add(index) => { root.track-add(index); } track-remove(index) => { root.track-remove(index); } rescan => { root.rescan(); }
         }
         SettingsPage { visible: root.page == 2; opacity: root.page == 2 ? 1 : 0; animate opacity { duration: 180ms; } snow: root.snow; snow-change(value) => { root.snow-change(value); } }
+        LyricsPage { visible: root.page == 3; title: root.track-title; artist: root.track-artist; text: root.lyrics-text; current-line: root.lyrics-current-line; status: root.lyrics-status; source: root.lyrics-source; synchronized: root.lyrics-synchronized; refresh => { root.lyrics-refresh(); } }
     }
     PlayerBar { x: 30px; y: root.height - 181px; width: root.width - 60px; artwork: root.artwork; title: root.track-title; artist: root.track-artist; elapsed: root.elapsed; duration: root.duration; progress: root.progress; volume: root.volume; playing: root.playing; shuffle: root.shuffle; repeat-mode: root.repeat-mode; has-track: root.has-track;
         toggle => { root.toggle(); } previous => { root.previous(); } next => { root.next(); } seek(value) => { root.seek(value); } volume-change(value) => { root.volume-change(value); } shuffle-change => { root.shuffle-change(); } repeat-change => { root.repeat-change(); }

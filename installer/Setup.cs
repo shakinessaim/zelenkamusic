@@ -4,6 +4,8 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -42,6 +44,7 @@ internal static class Program
             }
         }
         Directory.CreateDirectory(Path.Combine(root, "songs"));
+        Directory.CreateDirectory(Path.Combine(root, "lyrics"));
     }
 }
 
@@ -52,12 +55,15 @@ internal sealed class SetupForm : Form
     private readonly Button cancel = new Button();
     private readonly Label status = new Label();
     private readonly CheckBox launch = new CheckBox();
+    private readonly CheckBox download = new CheckBox();
+    private CancellationTokenSource downloading;
+    private bool busy;
     private bool installed;
 
     internal SetupForm()
     {
         Text = "Установка ZelenkaMusic";
-        ClientSize = new Size(560, 340);
+        ClientSize = new Size(560, 400);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -69,33 +75,36 @@ internal sealed class SetupForm : Form
         Label subtitle = new Label { Text = "Музыкальный проигрыватель", Left = 33, Top = 81, Width = 480, Height = 28, ForeColor = ColorTranslator.FromHtml("#A4B0A8") };
         Label location = new Label { Text = "Папка установки:\r\n" + destination, Left = 33, Top = 127, Width = 492, Height = 60, Font = new Font("Segoe UI", 9) };
         launch.Text = "Запустить ZelenkaMusic после установки";
-        launch.Checked = true; launch.SetBounds(33, 202, 490, 29);
-        status.SetBounds(33, 237, 492, 26);
+        download.Text = "Скачать музыку и тексты песен с GitHub";
+        download.Checked = false; download.SetBounds(33, 197, 490, 29);
+        launch.Checked = true; launch.SetBounds(33, 235, 490, 29);
+        status.SetBounds(33, 274, 492, 48);
         status.Font = new Font("Segoe UI", 9);
         status.ForeColor = ColorTranslator.FromHtml("#A4B0A8");
         status.Text = "Поместите альбомы в папку songs рядом с приложением.";
-        cancel.Text = "Отмена"; cancel.SetBounds(272, 284, 118, 38);
+        cancel.Text = "Отмена"; cancel.SetBounds(272, 344, 118, 38);
         cancel.FlatStyle = FlatStyle.Flat; cancel.FlatAppearance.BorderSize = 0;
         cancel.BackColor = ColorTranslator.FromHtml("#222B25");
-        cancel.Click += delegate { Close(); };
-        install.Text = "Установить"; install.SetBounds(404, 284, 124, 38);
+        cancel.Click += delegate { if (busy && downloading != null) { downloading.Cancel(); cancel.Enabled = false; status.Text = "Остановка загрузки…"; } else Close(); };
+        install.Text = "Установить"; install.SetBounds(404, 344, 124, 38);
         install.FlatStyle = FlatStyle.Flat; install.FlatAppearance.BorderSize = 0;
         install.BackColor = ColorTranslator.FromHtml("#7BCE9A");
         install.ForeColor = ColorTranslator.FromHtml("#101512");
         install.Font = new Font("Segoe UI", 10, FontStyle.Bold);
         install.Click += InstallClicked;
-        Controls.AddRange(new Control[] { brand, subtitle, location, launch, status, cancel, install });
+        Controls.AddRange(new Control[] { brand, subtitle, location, download, launch, status, cancel, install });
+        FormClosing += delegate(object sender, FormClosingEventArgs e) { if (busy) { if (downloading != null) downloading.Cancel(); e.Cancel = true; } };
         AcceptButton = install; CancelButton = cancel;
     }
 
-    private void InstallClicked(object sender, EventArgs args)
+    private async void InstallClicked(object sender, EventArgs args)
     {
         if (installed)
         {
             if (launch.Checked) System.Diagnostics.Process.Start(Path.Combine(destination, "ZelenkaMusic.exe"));
             Close(); return;
         }
-        install.Enabled = false; status.Text = "Установка…"; status.Refresh();
+        busy = true; download.Enabled = false; install.Enabled = false; status.Text = "Установка…"; status.Refresh();
         try
         {
             Program.Extract(destination);
@@ -113,10 +122,13 @@ internal sealed class SetupForm : Form
             dynamic musicShortcut = shell.CreateShortcut(Path.Combine(menu, "Папка музыки.lnk"));
             musicShortcut.TargetPath = Path.Combine(destination, "songs");
             musicShortcut.Save();
+            dynamic lyricsShortcut = shell.CreateShortcut(Path.Combine(menu, "Тексты песен.lnk"));
+            lyricsShortcut.TargetPath = Path.Combine(destination, "lyrics");
+            lyricsShortcut.Save();
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\ZelenkaMusic"))
             {
                 key.SetValue("DisplayName", "ZelenkaMusic");
-                key.SetValue("DisplayVersion", "0.1.2");
+                key.SetValue("DisplayVersion", "0.1.3");
                 key.SetValue("Publisher", "ZelenkaMusic");
                 key.SetValue("InstallLocation", destination);
                 key.SetValue("DisplayIcon", Path.Combine(destination, "ZelenkaMusic.exe") + ",0");
@@ -124,14 +136,29 @@ internal sealed class SetupForm : Form
                 key.SetValue("NoModify", 1, RegistryValueKind.DWord);
                 key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
             }
-            installed = true; install.Text = "Готово"; cancel.Visible = false;
+            installed = true; install.Text = "Готово";
             status.Text = "Установлено. Ярлыки добавлены в меню «Пуск».";
+            if (download.Checked)
+            {
+                downloading = new CancellationTokenSource();
+                try {
+                    var progress = new Progress<string>(value => { if (!downloading.IsCancellationRequested) status.Text = value; });
+                    status.Text = await Task.Run(() => RepositoryContent.Download(destination, progress, downloading.Token));
+                }
+                catch (OperationCanceledException) { status.Text = "Приложение установлено. Загрузка отменена; готовые файлы сохранены."; }
+                catch (Exception error) {
+                    status.Text = "Приложение установлено. Загрузка не завершена.";
+                    MessageBox.Show(this, "Приложение установлено. Музыку и тексты можно скачать позже, повторив установку.\r\n\r\n" + error.Message, "ZelenkaMusic", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                finally { downloading.Dispose(); downloading = null; }
+            }
+            cancel.Visible = false;
         }
         catch (Exception error)
         {
             status.Text = "Установка не завершена.";
             MessageBox.Show(this, "Закройте ZelenkaMusic, если он запущен, и попробуйте ещё раз.\r\n\r\n" + error.Message, "ZelenkaMusic", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-        finally { install.Enabled = true; }
+        finally { busy = false; install.Enabled = true; download.Enabled = true; cancel.Enabled = true; }
     }
 }

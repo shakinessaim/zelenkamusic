@@ -1,13 +1,13 @@
 export component FloatingNavigation inherits Rectangle {
     in property <int> selected;
     callback navigate(int);
-    width: 440px; height: 56px;
+    width: 590px; height: 56px;
     border-radius: 28px; background: #222B25;
     border-width: 1px; border-color: #354439;
     drop-shadow-color: #00000055; drop-shadow-blur: 16px; drop-shadow-offset-y: 5px;
     HorizontalLayout {
         padding: 6px; spacing: 4px;
-        for item[index] in [{label: "Главная", glyph: "\u{e80f}"}, {label: "Медиатека", glyph: "\u{e8f1}"}, {label: "Настройки", glyph: "\u{e713}"}] : Rectangle {
+        for item[index] in [{label: "Главная", glyph: "\u{e80f}"}, {label: "Медиатека", glyph: "\u{e8f1}"}, {label: "Настройки", glyph: "\u{e713}"}, {label: "Текст песни", glyph: "\u{e8a5}"}] : Rectangle {
             border-radius: 23px; background: root.selected == index ? #7BCE9A : touch.has-hover ? #303F34 : transparent;
             animate background { duration: 180ms; }
             HorizontalLayout { alignment: center; spacing: 8px;

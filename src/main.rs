@@ -4,7 +4,7 @@
 compile_error!("ZelenkaMusic currently supports Windows 10 and Windows 11 only.");
 
 mod app;
-use zelenka_music::{audio, database, library, playlists, settings};
+use zelenka_music::{audio, database, library, lyrics, playlists, settings};
 
 slint::include_modules!();
 

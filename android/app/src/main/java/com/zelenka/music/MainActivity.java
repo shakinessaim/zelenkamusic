@@ -14,6 +14,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -46,11 +48,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity implements PlaybackService.Listener {
     private static final int BACKGROUND = 0xff101512, SURFACE = 0xff1c251f;
     private static final int GREEN = 0xff7bce9a, TEXT = 0xfff1f5f2, MUTED = 0xffa4b0a8;
-    private static final int PICK_FOLDER = 20, NOTIFICATIONS = 21;
+    private static final int PICK_FOLDER = 20, NOTIFICATIONS = 21, PICK_LYRICS = 22;
     private PlaybackService service;
     private boolean bound, started, seeking;
     private int page, libraryTab;
@@ -63,7 +67,17 @@ public final class MainActivity extends Activity implements PlaybackService.List
     private ImageButton playButton;
     private Button shuffleButton, repeatButton, homePlay, refreshButton;
     private SeekBar progress;
-    private final Button[] navigation = new Button[3];
+    private final Button[] navigation = new Button[4];
+    private TextView lyricsTitle, lyricsArtist, lyricsText, lyricsCurrent, lyricsSource, downloadStatus;
+    private Button downloadButton, cancelDownloadButton;
+    private Lyrics lyricsDocument;
+    private String lyricsTrack;
+    private int lyricsRequest;
+    private final ExecutorService lyricsWorker = Executors.newSingleThreadExecutor();
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final Runnable downloadTick = new Runnable() {
+        @Override public void run() { if (started) { updateDownload(); main.postDelayed(this, 500); } }
+    };
 
     private final ServiceConnection connection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
@@ -92,16 +106,20 @@ public final class MainActivity extends Activity implements PlaybackService.List
     @Override protected void onStart() {
         super.onStart();
         started = true;
+        main.post(downloadTick);
         bound = bindService(new Intent(this, PlaybackService.class), connection, BIND_AUTO_CREATE);
     }
     @Override protected void onStop() {
         started = false;
+        main.removeCallbacks(downloadTick);
+        lyricsRequest++;
         snow.setEnabledSnow(false);
         if (service != null) service.removeListener(this);
         if (bound) { unbindService(connection); bound = false; }
         service = null;
         super.onStop();
     }
+    @Override protected void onDestroy() { lyricsWorker.shutdownNow(); super.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putInt("page", page); state.putInt("tab", libraryTab);
         state.putString("album", detailKey); state.putString("playlist", detailPlaylist);
@@ -192,13 +210,14 @@ public final class MainActivity extends Activity implements PlaybackService.List
         root.addView(notice);
         buildPlayer();
         LinearLayout nav = row();
-        String[] titles = {"Главная", "Медиатека", "Настройки"};
+        String[] titles = {"Главная", "Медиатека", "Настройки", "Текст"};
         for (int i = 0; i < titles.length; i++) {
             final int selected = i;
             navigation[i] = button(titles[i], false, () -> {
                 page = selected; detailKey = null; detailPlaylist = null; search = "";
                 buildPage(); changed();
             });
+            navigation[i].setTextSize(11);
             weighted(nav, navigation[i]);
         }
         root.addView(nav);
@@ -263,12 +282,16 @@ public final class MainActivity extends Activity implements PlaybackService.List
         if (service == null) return;
         content.removeAllViews();
         homeTitle = null; homeArtist = null; homeArt = null; homePlay = null; refreshButton = null;
+        lyricsTitle = null; lyricsArtist = null; lyricsText = null; lyricsCurrent = null; lyricsSource = null;
+        lyricsTrack = null; lyricsDocument = null; lyricsRequest++;
+        downloadStatus = null; downloadButton = null; cancelDownloadButton = null;
         pageLayout = column();
         pageLayout.setPadding(0, dp(8), 0, dp(8));
         content.addView(pageLayout, new FrameLayout.LayoutParams(-1, -1));
         if (page == 0) buildHome();
         else if (page == 1) buildLibrary();
-        else buildSettings();
+        else if (page == 2) buildSettings();
+        else buildLyrics();
         content.addView(snow, new FrameLayout.LayoutParams(-1, -1));
         for (int i = 0; i < navigation.length; i++) {
             navigation[i].setTextColor(i == page ? GREEN : MUTED);
@@ -431,10 +454,103 @@ public final class MainActivity extends Activity implements PlaybackService.List
         refreshButton = button("Обновить медиатеку", false, this::rescan); settings.addView(refreshButton);
         settings.addView(text("Скопируйте альбомы на телефон и выберите их общую папку. Поддерживаются MP3 и FLAC, "
                 + "встроенные обложки и cover.jpg / cover.png / cover.webp. Музыкальные файлы остаются в выбранной папке.", 14, MUTED));
-        settings.addView(text("ZelenkaMusic 0.1.2 · Android", 15, GREEN));
-        settings.addView(text("Работает без интернета. Плейлисты и настройки сохраняются на этом устройстве. "
+        settings.addView(text("Тексты песен", 18, TEXT));
+        String lyricsFolder = service.library().preferences().getString("lyrics_tree", "");
+        settings.addView(text(lyricsFolder.isEmpty() ? "Папка текстов ещё не выбрана" : DocumentsContract.getTreeDocumentId(Uri.parse(lyricsFolder)), 13, MUTED));
+        settings.addView(button("Выбрать папку lyrics", false, this::pickLyricsFolder));
+        settings.addView(text("Добавляйте .txt или .lrc с именем аудиофайла. Можно повторять папки альбомов из songs. Тексты открываются во вкладке «Текст».", 14, MUTED));
+        settings.addView(text("Загрузка с GitHub", 18, TEXT));
+        settings.addView(text("shakinessaim/zelenkamusic · songs и lyrics. Нужен интернет; коллекция может быть большой. Уже существующие файлы сохраняются.", 13, MUTED));
+        downloadButton = button("Скачать музыку и тексты", true, this::downloadContent); settings.addView(downloadButton);
+        cancelDownloadButton = button("Остановить загрузку", false, () -> startService(new Intent(this, ContentDownloadService.class).setAction(ContentDownloadService.CANCEL)));
+        settings.addView(cancelDownloadButton);
+        downloadStatus = text("", 13, GREEN); settings.addView(downloadStatus);
+        updateDownload();
+        settings.addView(text("ZelenkaMusic 0.1.3 · Android", 15, GREEN));
+        settings.addView(text("Воспроизведение и тексты работают без интернета. Плейлисты и настройки сохраняются на этом устройстве. "
                 + "После перезапуска композиция восстанавливается на паузе.", 13, MUTED));
         scroll.addView(settings); pageLayout.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
+    }
+
+    private void buildLyrics() {
+        lyricsTitle = text("Текст песни", 24, TEXT); pageLayout.addView(lyricsTitle);
+        lyricsArtist = text("", 13, MUTED); pageLayout.addView(lyricsArtist);
+        LinearLayout tools = row();
+        weighted(tools, button("Обновить текст", false, this::reloadLyrics));
+        weighted(tools, button("Папка lyrics", false, this::pickLyricsFolder)); pageLayout.addView(tools);
+        lyricsCurrent = text("", 19, GREEN); lyricsCurrent.setTypeface(null, Typeface.BOLD);
+        lyricsCurrent.setBackground(background(SURFACE, 12)); lyricsCurrent.setPadding(dp(12), dp(12), dp(12), dp(12));
+        lyricsCurrent.setVisibility(View.GONE); pageLayout.addView(lyricsCurrent);
+        ScrollView scroll = new ScrollView(this);
+        lyricsText = text("Выберите композицию.", 17, TEXT); lyricsText.setTextIsSelectable(true);
+        scroll.addView(lyricsText); pageLayout.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        lyricsSource = text("", 11, MUTED); pageLayout.addView(lyricsSource);
+    }
+    private void reloadLyrics() {
+        if (service == null || page != 3 || lyricsText == null) return;
+        final Track track = service.current();
+        final String tree = service.library().preferences().getString("lyrics_tree", "");
+        lyricsTrack = track == null ? "" : track.uri;
+        lyricsDocument = null; lyricsCurrent.setVisibility(View.GONE); lyricsSource.setText("");
+        lyricsTitle.setText(track == null ? "Текст песни" : track.title);
+        lyricsArtist.setText(track == null ? "" : track.artist);
+        final int request = ++lyricsRequest;
+        if (track == null) { lyricsText.setText("Выберите композицию, чтобы увидеть её текст."); return; }
+        if (tree.isEmpty()) { lyricsText.setText("Выберите папку lyrics в настройках или кнопкой выше."); return; }
+        lyricsText.setText("Загрузка текста…");
+        final android.content.Context application = getApplicationContext();
+        lyricsWorker.execute(() -> {
+            LyricsRepository.Result result = null; String error = null;
+            try { result = LyricsRepository.load(application, tree, track); }
+            catch (Exception failure) { error = "Не удалось прочитать текст. Сохраните файл как UTF-8 и проверьте доступ к папке. " + (failure.getMessage() == null ? "" : failure.getMessage()); }
+            final LyricsRepository.Result loaded = result; final String failure = error;
+            main.post(() -> {
+                if (!started || isDestroyed() || request != lyricsRequest || page != 3 || lyricsText == null) return;
+                if (failure != null) lyricsText.setText(failure);
+                else if (loaded == null) lyricsText.setText("Текст пока не добавлен. Создайте .txt или .lrc с именем аудиофайла в папке lyrics и нажмите «Обновить текст».");
+                else {
+                    lyricsDocument = loaded.lyrics;
+                    lyricsText.setText(lyricsDocument.text.isEmpty() ? "Файл текста пуст." : lyricsDocument.text);
+                    lyricsSource.setText(loaded.source); updateLyricsLine();
+                }
+            });
+        });
+    }
+    private void updateLyricsLine() {
+        if (service == null || lyricsCurrent == null) return;
+        boolean timed = lyricsDocument != null && lyricsDocument.synchronizedLyrics();
+        lyricsCurrent.setVisibility(timed ? View.VISIBLE : View.GONE);
+        if (timed) { String line = lyricsDocument.currentLine(service.position()); lyricsCurrent.setText(line.isEmpty() ? "…" : line); }
+    }
+    private void downloadContent() {
+        if (service == null || ContentDownloadService.isRunning()) return;
+        String songs = service.library().preferences().getString("music_tree", ""), lyrics = service.library().preferences().getString("lyrics_tree", "");
+        if (songs.isEmpty() || lyrics.isEmpty()) { service.setNotice("Сначала выберите папки songs и lyrics в настройках."); return; }
+        if (songs.equals(lyrics)) { service.setNotice("Выберите отдельные папки для музыки и текстов."); return; }
+        for (String folder : new String[]{songs, lyrics}) {
+            boolean writable = false;
+            for (android.content.UriPermission permission : getContentResolver().getPersistedUriPermissions())
+                if (permission.getUri().toString().equals(folder) && permission.isReadPermission() && permission.isWritePermission()) writable = true;
+            if (!writable) { service.setNotice("Выберите папки ещё раз и разрешите доступ для записи."); return; }
+        }
+        if (service.library().isScanning()) { service.setNotice("Дождитесь завершения поиска музыки."); return; }
+        requestNotifications();
+        service.library().preferences().edit().putString("download_status", "Подготовка загрузки…").apply();
+        try { startForegroundService(new Intent(this, ContentDownloadService.class)); }
+        catch (Exception error) { service.setNotice("Не удалось начать загрузку: " + error.getMessage()); }
+        updateDownload();
+    }
+    private void updateDownload() {
+        if (service == null || !started) return;
+        boolean running = ContentDownloadService.isRunning();
+        if (downloadButton != null) downloadButton.setEnabled(!running && !service.library().isScanning());
+        if (cancelDownloadButton != null) cancelDownloadButton.setVisibility(running ? View.VISIBLE : View.GONE);
+        if (downloadStatus != null) downloadStatus.setText(service.library().preferences().getString("download_status", "Выберите обе папки перед загрузкой."));
+        if (!running && !service.library().isScanning() && service.library().preferences().getBoolean("download_rescan", false)) {
+            String destination = service.library().preferences().getString("download_music_tree", "");
+            service.library().preferences().edit().putBoolean("download_rescan", false).apply();
+            if (!destination.isEmpty()) scanFolder(Uri.parse(destination));
+        }
     }
 
     private ListView list() {
@@ -520,19 +636,34 @@ public final class MainActivity extends Activity implements PlaybackService.List
     }
 
     private void pickFolder() {
+        if (ContentDownloadService.isRunning()) { service.setNotice("Сначала остановите загрузку."); return; }
         if (service.library().isScanning()) { service.setNotice("Дождитесь завершения поиска музыки."); return; }
         Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+        pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
                 | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         try { startActivityForResult(pick, PICK_FOLDER); }
         catch (Exception error) { service.setNotice("На устройстве недоступен выбор папок."); }
     }
+    private void pickLyricsFolder() {
+        if (ContentDownloadService.isRunning()) { service.setNotice("Сначала остановите загрузку."); return; }
+        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        try { startActivityForResult(pick, PICK_LYRICS); }
+        catch (Exception error) { service.setNotice("На устройстве недоступен выбор папок."); }
+    }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request != PICK_FOLDER || result != RESULT_OK || data == null || data.getData() == null) return;
+        if ((request != PICK_FOLDER && request != PICK_LYRICS) || result != RESULT_OK || data == null || data.getData() == null) return;
         Uri tree = data.getData();
         try {
-            getContentResolver().takePersistableUriPermission(tree, data.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContentResolver().takePersistableUriPermission(tree, data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
+            if (request == PICK_LYRICS) {
+                getSharedPreferences("zelenka", MODE_PRIVATE).edit().putString("lyrics_tree", tree.toString()).apply();
+                lyricsTrack = null;
+                if (service != null) { buildPage(); changed(); }
+                return;
+            }
             // onActivityResult can precede reconnection to the service after the system picker.
             pendingFolder = tree;
             if (service != null) scanFolder(tree);
@@ -636,6 +767,11 @@ public final class MainActivity extends Activity implements PlaybackService.List
         if (service == null || !started) return;
         if (pendingFolder != null) { scanFolder(pendingFolder); return; }
         Track track = service.current();
+        if (page == 3 && lyricsText != null) {
+            String current = track == null ? "" : track.uri;
+            if (!current.equals(lyricsTrack)) reloadLyrics();
+            updateLyricsLine();
+        }
         String title = track == null ? "Ничего не играет" : track.title;
         String artist = track == null ? "Выберите папку с музыкой" : track.artist;
         playerTitle.setText(title); playerArtist.setText(artist);

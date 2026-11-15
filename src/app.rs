@@ -5,6 +5,7 @@ use crate::{
     },
     database::Database,
     library::{scanner, Library},
+    lyrics::{self, Lyrics},
     playlists::manager::{self, Playlist},
     settings::Settings,
     AppWindow, CardData, ChoiceData, TrackData,
@@ -43,6 +44,8 @@ struct App {
     playlists: Vec<Playlist>,
     queue: Queue,
     songs: PathBuf,
+    lyrics_root: PathBuf,
+    lyrics_document: Option<Lyrics>,
     cache: PathBuf,
     scan: Option<Receiver<Result<Library, String>>>,
     detail: Option<Detail>,
@@ -415,6 +418,7 @@ impl App {
         self.position = position;
         self.duration = track.duration;
         self.playing = playing;
+        self.reload_lyrics();
         self.player.send(Command::Load {
             token: self.token,
             path: track.path,
@@ -509,7 +513,54 @@ impl App {
             } else {
                 0.0
             });
+            let line = self
+                .lyrics_document
+                .as_ref()
+                .map(|lyrics| lyrics.current_line(self.position))
+                .unwrap_or_default();
+            if ui.get_lyrics_current_line().as_str() != line {
+                ui.set_lyrics_current_line(line.into());
+            }
         }
+    }
+    fn reload_lyrics(&mut self) {
+        self.lyrics_document = None;
+        let Some(ui) = self.ui() else {
+            return;
+        };
+        ui.set_lyrics_text("".into());
+        ui.set_lyrics_current_line("".into());
+        ui.set_lyrics_synchronized(false);
+        ui.set_lyrics_status("Выберите композицию, чтобы увидеть её текст.".into());
+        ui.set_lyrics_source(self.lyrics_root.display().to_string().into());
+        let Some(track) = self.queue.current.and_then(|id| self.library.track(id)) else {
+            return;
+        };
+        let expected = lyrics::expected_path(&self.lyrics_root, &self.songs, &track.path);
+        match lyrics::load(&self.lyrics_root, &self.songs, &track.path) {
+            Ok(Some((path, document))) => {
+                ui.set_lyrics_source(path.display().to_string().into());
+                ui.set_lyrics_status(
+                    if document.text.is_empty() {
+                        "Файл текста пуст."
+                    } else {
+                        ""
+                    }
+                    .into(),
+                );
+                ui.set_lyrics_text(document.text.clone().into());
+                ui.set_lyrics_synchronized(document.synchronized());
+                self.lyrics_document = Some(document);
+            }
+            Ok(None) => {
+                ui.set_lyrics_status("Текст пока не добавлен. Создайте файл .txt или .lrc с именем композиции и нажмите «Обновить».".into());
+                ui.set_lyrics_source(expected.display().to_string().into());
+            }
+            Err(error) => {
+                ui.set_lyrics_status(format!("Не удалось прочитать текст: {error:#}").into())
+            }
+        }
+        self.progress_ui();
     }
     fn shuffle_toggle(&mut self) {
         if self.queue.home {
@@ -827,6 +878,10 @@ fn create(songs: PathBuf, data: PathBuf) -> Result<(AppWindow, Rc<RefCell<App>>)
     let mut images = HashMap::new();
     images.insert(PathBuf::from("__placeholder__"), window.get_artwork());
     window.set_songs_path(songs.display().to_string().into());
+    let lyrics_root = songs
+        .parent()
+        .context("Не удалось определить папку lyrics")?
+        .join("lyrics");
     let state = Rc::new(RefCell::new(App {
         window: window.as_weak(),
         database,
@@ -836,6 +891,8 @@ fn create(songs: PathBuf, data: PathBuf) -> Result<(AppWindow, Rc<RefCell<App>>)
         playlists: vec![],
         queue: Queue::default(),
         songs,
+        lyrics_root,
+        lyrics_document: None,
         cache: data.join("artwork"),
         scan: None,
         detail: None,
@@ -862,7 +919,10 @@ fn create(songs: PathBuf, data: PathBuf) -> Result<(AppWindow, Rc<RefCell<App>>)
     }
     wire!(on_navigate, |app, page| {
         if let Some(ui) = app.ui() {
-            ui.set_page(page.clamp(0, 2));
+            ui.set_page(page.clamp(0, 3));
+        }
+        if page == 3 {
+            app.reload_lyrics();
         }
     });
     wire!(on_home_play, |app| {
@@ -948,6 +1008,9 @@ fn create(songs: PathBuf, data: PathBuf) -> Result<(AppWindow, Rc<RefCell<App>>)
     });
     wire!(on_rescan, |app| {
         app.start_scan();
+    });
+    wire!(on_lyrics_refresh, |app| {
+        app.reload_lyrics();
     });
     state.borrow().settings_ui();
     state.borrow_mut().start_scan();
@@ -1117,7 +1180,10 @@ mod tests {
             mouse(&window, 1055.0, 688.0, false);
         }
         // Windows may reuse the last buffer or alternate between two buffers. Exercise both.
-        for page in 0..3 {
+        window.set_lyrics_text("Первая строка\n\nВторая строка".into());
+        window.set_lyrics_synchronized(true);
+        window.set_lyrics_current_line("Первая строка".into());
+        for page in 0..4 {
             window.set_page(page);
             for (mode, buffers) in [
                 (RepaintBufferType::ReusedBuffer, 1),
@@ -1153,6 +1219,7 @@ mod tests {
                 anyhow::ensure!(mismatches < 30, "Snowfall corrupts incremental rendering on page {page}, buffers={buffers}: {mismatches} pixels");
             }
         }
+        screenshot(&window, "ui-lyrics.png")?;
         for (width, height) in [(940.0, 760.0), (1280.0, 900.0)] {
             window
                 .window()

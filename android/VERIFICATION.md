@@ -1,3 +1,15 @@
+# Проверка версии 0.1.3
+
+15 ноября 2026 года собрана версия с текстами песен и скачиванием `songs`/`lyrics` в Android Settings.
+
+- Java queue: 1217 проверок прошло; UTF-8/UTF-16, LRC, offset, перемотка и фильтрация путей прошли.
+- Java компиляция всей программы, DEX, APK alignment и подписи v2/v3 проверены.
+- `dist/ZelenkaMusic-Android-0.1.3.apk`: SHA-256 `4EA3D8793282C0F93B451470C726415D3EE1AB7FC882527280EDB5A39D13DDBF`.
+- Download service использует отдельный foreground dataSync service, уведомление прогресса/отмены, wake lock и временные файлы. Загрузка фиксирует один GitHub commit, сохраняет существующие файлы и поддерживает публичный Git LFS с проверкой SHA-256.
+- Телефон и document provider не проверены: ADB не может создать пользовательский каталог в sandbox. Живые загрузки GitHub также недоступны в этой сессии.
+
+## Предыдущая проверка 0.1.2
+
 # Android APK verification
 
 Built on Windows on 15 November 2026 with Android Studio's Java 21.0.10, Android SDK Platform 36.1, and Build-Tools 37.0.0 using `scripts/Build-Android.ps1`.

@@ -106,7 +106,7 @@ public final class LibraryRepository {
             try {
                 String rootId = DocumentsContract.getTreeDocumentId(tree);
                 String rootName = documentName(DocumentsContract.buildDocumentUriUsingTree(tree, rootId));
-                walk(tree, rootId, rootName, found, skipped, new HashSet<>(), 0);
+                walk(tree, rootId, rootName, "", found, skipped, new HashSet<>(), 0);
                 JSONArray json = new JSONArray();
                 for (Track track : found) json.put(track.toJson());
                 FileOutputStream output = null;
@@ -144,7 +144,7 @@ public final class LibraryRepository {
         return "Музыка";
     }
 
-    private void walk(Uri tree, String parentId, String folder, List<Track> found, int[] skipped,
+    private void walk(Uri tree, String parentId, String folder, String relativeFolder, List<Track> found, int[] skipped,
                       Set<String> visited, int depth) throws Exception {
         if (depth > 64 || !visited.add(parentId)) return;
         Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId);
@@ -172,18 +172,18 @@ public final class LibraryRepository {
         for (String[] file : files) {
             if (DocumentsContract.Document.MIME_TYPE_DIR.equals(file[2])) {
                 // A failed subfolder aborts the scan, preserving the last complete library.
-                walk(tree, file[0], file[1], found, skipped, visited, depth + 1);
+                walk(tree, file[0], file[1], relativeFolder.isEmpty() ? file[1] : relativeFolder + "/" + file[1], found, skipped, visited, depth + 1);
             } else {
                 String lower = file[1].toLowerCase(Locale.ROOT);
                 if (!lower.endsWith(".mp3") && !lower.endsWith(".flac")) continue;
                 Uri document = DocumentsContract.buildDocumentUriUsingTree(tree, file[0]);
-                try { found.add(metadata(document, file[1], folder, parentId, folderArt)); }
+                try { found.add(metadata(document, file[1], folder, parentId, folderArt, relativeFolder.isEmpty() ? file[1] : relativeFolder + "/" + file[1])); }
                 catch (Exception error) { skipped[0]++; }
             }
         }
     }
 
-    private Track metadata(Uri uri, String filename, String folder, String parentId, String folderArt)
+    private Track metadata(Uri uri, String filename, String folder, String parentId, String folderArt, String relativePath)
             throws Exception {
         MediaMetadataRetriever reader = new MediaMetadataRetriever();
         try {
@@ -202,7 +202,7 @@ public final class LibraryRepository {
                 String embeddedArt = cacheArtwork(uri.toString(), embedded);
                 if (!embeddedArt.isEmpty()) art = embeddedArt;
             }
-            return new Track(uri.toString(), title, artist, album, parentId + "|" + album, art, duration, number);
+            return new Track(uri.toString(), title, artist, album, parentId + "|" + album, art, duration, number, relativePath);
         } finally { reader.release(); }
     }
 
